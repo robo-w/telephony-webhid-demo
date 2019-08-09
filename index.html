@@ -61,6 +61,8 @@ function pickUp() {
     return;
   }
   document.getElementById('led-off-hook').checked = true;
+  document.getElementById('led-ring').checked = false;
+  document.getElementById('ringer').checked = false;
   sendOutputReport();
 }
 
@@ -80,6 +82,8 @@ function toggleMute() {
     return;
   }
   let element = document.getElementById('led-mute');
+  element.checked = !element.checked;
+  element = document.getElementById('led-microphone');
   element.checked = !element.checked;
   sendOutputReport();
 }
@@ -101,6 +105,7 @@ function hangUp() {
   }
   document.getElementById('led-off-hook').checked = false;
   document.getElementById('led-mute').checked = false;
+  document.getElementById('led-microphone').checked = false;
   document.getElementById('led-ring').checked = false;
   document.getElementById('led-hold').checked = false;
   document.getElementById('ringer').checked = false;
@@ -173,14 +178,22 @@ function onInputReport(event) {
     document.getElementById('programmable-button').checked = programmableButton;
     document.getElementById('keypad-value').value = keypadValue.toString(16);
 
-    if (hookSwitch)
+    if (hookSwitch) {
       buf += ' off-hook';
-    else
+      pickUp();
+    }
+    else {
       buf += ' on-hook';
+      hangUp();
+    }
     if (lineBusyTone)
       buf += ' busy';
-    if (phoneMute)
+    if (phoneMute) {
       buf += ' mute';
+      document.getElementById('led-mute').checked = !document.getElementById('led-mute').checked;
+      document.getElementById('led-microphone').checked = !document.getElementById('led-microphone').checked;
+      sendOutputReport();
+    }
     if (flash)
       buf += ' flash';
     if (redial)
@@ -198,14 +211,24 @@ function onInputReport(event) {
     let vendorUsageFFFD = reportData.getUint8(0) & 0x20;
     let vendorUsage50 = reportData.getUint8(0) & 0x40;
 
-    if (vendorHookSwitch)
+    if (vendorHookSwitch) {
       buf += ' on-hook';
-    else
+      hangUp();
+    }
+    else {
       buf += ' off-hook';
+      if (document.getElementById('ringer').checked) {
+        pickUp();
+      }
+    }
     if (vendorLineBusyTone)
       buf += ' busy';
-    if (vendorPhoneMute)
+    if (vendorPhoneMute) {
       buf += ' mute';
+      document.getElementById('led-mute').checked = !document.getElementById('led-mute').checked;
+      document.getElementById('led-microphone').checked = !document.getElementById('led-microphone').checked;
+      sendOutputReport();
+    }
     if (vendorFlash)
       buf += ' flash';
     if (vendorRedial)
