@@ -4,7 +4,9 @@
 <head></head>
 <body>
 
-<button type="button" onclick="requestJabraDevice()">Connect</button>
+Vendor Filter: <input type="text" id="vendor" placeholder="0x0123"></input>
+<br/>
+<button type="button" onclick="requestDevice()">Connect</button>
 
 <h3>Outputs (host → device)</h3>
 <ul>
@@ -39,6 +41,36 @@
 <script type="application/javascript">
 
 var device = null;
+var inputReportId = null;
+var outputReportId = null;
+var outputs = {};
+var inputs = {};
+
+var outputMap = {
+	0x08: {
+		0x09: 'led-mute',
+		0x17: 'led-offhook',
+		0x18: 'led-ring',
+		0x21: 'led-microphone',
+		0x2a: 'led-online'
+	},
+	0x0b: {
+		0x9e: 'telephony-ringer'
+	}
+};
+var inputMap = {
+	0x0b: {
+		0x07: 'telephony-button',
+		0x20: 'telephony-hook',
+		0x21: 'telephony-flash',
+		0x24: 'telephony-redial',
+		0x26: 'telephony-drop',
+		0x2f: 'telephony-mute',
+	},
+	0x09: {
+		0x01: 'buttons-one'
+	}
+};
 
 function logappend(msg) {
   console.log(msg);
@@ -121,12 +153,13 @@ function sendOutputReport() {
   let ledHold = document.getElementById('led-hold').checked;
   let ledMicrophone = document.getElementById('led-microphone').checked;
   let ringer = document.getElementById('ringer').checked;
-  let bits = ledOffHook |
-             (ledMute << 1) |
-             (ledRing << 2) |
-             (ledHold << 3) |
-             (ledMicrophone << 4) |
-             (ringer << 5);
+  let bits = ledOffHook << outputs['led-offhook'] |
+             (ledMute << outputs['led-mute']) |
+             (ledRing << outputs['led-ring']) |
+             //(ledHold << 3) |
+             (ledMicrophone << outputs['led-microphone']) |
+             (ringer << outputs['telephony-ringer']);
+  
   
   let buf = '';
   if (ledOffHook)
@@ -142,10 +175,10 @@ function sendOutputReport() {
   if (ringer)
     buf += ' ringer';
   
-  logappend('OUTPUT 02:' + buf);
+  logappend('OUTPUT ('+outputReportId+'):' + buf);
 
   // Send the report to the device.
-  device.sendReport(0x02, new Uint8Array([bits, 0x00]));
+  device.sendReport(outputReportId, new Uint8Array([bits, 0x00]));
 }
 
 function onInputReport(event) {
@@ -153,21 +186,21 @@ function onInputReport(event) {
   let reportData = event.data;
 
   let buf = '';
-  if (reportId == 0x01) {
+  /*if (reportId == 0x01) {
     if (reportData.getUint8(0) & 0x01)
       buf += ' volume-down';
     if (reportData.getUint8(0) & 0x02)
       buf += ' volume-up';
-  } else if (reportId == 0x02) {
-    let hookSwitch = reportData.getUint8(0) & 0x01;
-    let lineBusyTone = reportData.getUint8(0) & 0x02;
-    let phoneMute = reportData.getUint8(0) & 0x04;
-    let flash = reportData.getUint8(0) & 0x08;
-    let redial = reportData.getUint8(0) & 0x10;
-    let speedDial = reportData.getUint8(0) & 0x20;
-    let programmableButton = reportData.getUint8(0) & 0x40;
-    let keypadValue = ((reportData.getUint8(0) & 0x80) >> 7) |
-                      ((reportData.getUint8(1) & 0x07) << 1);
+  } else*/ if (reportId == inputReportId) {
+    let hookSwitch = reportData.getUint8(0) & (1 << inputs['telephony-hook']);
+    let lineBusyTone = 0;//reportData.getUint8(0) & 0x02;
+    let phoneMute = reportData.getUint8(0) & (1 << inputs['telephony-mute']);
+    let flash = reportData.getUint8(0) & (1 << inputs['telephony-flash']);
+    let redial = reportData.getUint8(0) & (1 << inputs['telephony-redial']);
+    let speedDial = 0;//reportData.getUint8(0) & 0x20;
+    let programmableButton = 0;reportData.getUint8(0) & 0x40;
+    let keypadValue = 0;//((reportData.getUint8(0) & 0x80) >> 7) |
+                      //s((reportData.getUint8(1) & 0x07) << 1);
 
     document.getElementById('hook-switch').checked = hookSwitch;
     document.getElementById('line-busy-tone').checked = lineBusyTone;
@@ -202,7 +235,7 @@ function onInputReport(event) {
       buf += ' speed';
     if (programmableButton)
       buf += ' button';
-  } else if (reportId == 0x04) {
+  } /*else if (reportId == 0x04) {
     let vendorHookSwitch = reportData.getUint8(0) & 0x01;
     let vendorLineBusyTone = reportData.getUint8(0) & 0x02;
     let vendorPhoneMute = reportData.getUint8(0) & 0x04;
@@ -237,21 +270,29 @@ function onInputReport(event) {
       buf += ' fffd';
     if (vendorUsage50)
       buf += ' 50';
-  } else {
+  }*/ /*else {
     for (let i = 0; i < reportData.byteLength; ++i)
       buf += ' ' + hexByte(reportData.getUint8(i));
-  }
+  }*/
   logappend('INPUT ' + hexByte(reportId) + ': ' + buf);
+  raw = ''
+  for (let i = 0; i < reportData.byteLength; ++i)
+    raw += ' ' + hexByte(reportData.getUint8(i));
+  logappend(raw);
 }
 
-async function requestJabraDevice() {
+async function requestDevice() {
   if (!navigator.hid) {
     console.log('navigator.hid not defined');
     return;
   }
-
-  // Show a device chooser dialog. The vendor ID filter matches Jabra devices.
-  device = await navigator.hid.requestDevice({filters: [{ vendorId: 0x0b0e }]});
+  // Show a device chooser dialog. Use the vendor ID filter if one was entered
+  vendor = document.getElementById('vendor').value;
+  filters = [];
+  if (vendor) {
+    filters.push({vendorId: vendor});
+  }
+  device = await navigator.hid.requestDevice({filters: filters});
   if (!device) {
     console.log('chooser dismissed without a selection');
     return;
@@ -263,6 +304,7 @@ async function requestJabraDevice() {
     console.log('open failed');
     return;
   }
+  enumerateReports();
   
   // Register an input report event listener.
   device.oninputreport = onInputReport;
@@ -276,6 +318,49 @@ async function requestJabraDevice() {
 
   logappend('Connected to device: ' + device.productName);
 }
+
+function enumerateReports() {
+	var telephonyCollection = null;
+	for(x = 0; x < device.collections.length; x++) {
+		if (device.collections[x].usagePage == 0x0b) {
+			telephonyCollection = device.collections[x];
+			break;
+		}
+	}
+	if (!telephonyCollection) {
+		logappend("Couldn't find telephony collection, unsupported device");
+	}
+	inputReportId = telephonyCollection.inputReports[0].reportId;
+	outputReportId = telephonyCollection.outputReports[0].reportId;
+	reportPos = 0;
+	for (x = 0; x < telephonyCollection.outputReports[0].items.length; x++) {
+		for (y = 0; y < telephonyCollection.outputReports[0].items[x].usages.length; y++) {
+			usagePage = (telephonyCollection.outputReports[0].items[x].usages[y] & 0xFF0000) >> 16
+			usage = (telephonyCollection.outputReports[0].items[x].usages[y] & 0x0000FF)
+			if (usagePage in outputMap) {
+				if (usage in outputMap[usagePage]) {
+					outputs[outputMap[usagePage][usage]] = reportPos
+				}
+			}
+			reportPos += telephonyCollection.outputReports[0].items[x].reportSize;
+		}
+	}
+
+	reportPos = 0;
+	for (x = 0; x < telephonyCollection.inputReports[0].items.length; x++) {
+		for (y = 0; y < telephonyCollection.inputReports[0].items[x].usages.length; y++) {
+			usagePage = (telephonyCollection.inputReports[0].items[x].usages[y] & 0xFF0000) >> 16
+			usage = (telephonyCollection.inputReports[0].items[x].usages[y] & 0x0000FF)
+			if (usagePage in inputMap) {
+				if (usage in inputMap[usagePage]) {
+					inputs[inputMap[usagePage][usage]] = reportPos
+				}
+			}
+			reportPos += telephonyCollection.inputReports[0].items[x].reportSize;
+		}
+	}
+}
+
 </script>
 </body>
 </html>
