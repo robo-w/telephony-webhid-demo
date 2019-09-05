@@ -12,7 +12,7 @@ WebHID is available in Chrome 78+ behind a flag. To use WebHID, navigate to chro
 ## Usage
 
 * Plug the headset into a USB port.
-* Open the [demo page](https://nondebug.github.io/jabra-webhid-demo/) and click the Connect button.
+* Open the [demo page](https://rpaskowitz.github.io/telephony-webhid-demo/) and click the Connect button.
 * Optionally enter a vendor ID filter
 * In the device chooser dialog, select the headset
 * Check that a "Connected to device" message is displayed.
