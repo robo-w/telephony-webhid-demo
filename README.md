@@ -12,9 +12,13 @@ WebHID is available in Chrome 78+ behind a flag. To use WebHID, navigate to chro
 ## Usage
 
 * Plug the headset into a USB port.
-* Open the [demo page](https://rpaskowitz.github.io/telephony-webhid-demo/) and click the Connect button.
-* Optionally enter a vendor ID filter
+* Open the [demo page](https://rpaskowitz.github.io/telephony-webhid-demo/)
+* Select the headset manufacturer to use a preset definition of HID descriptors, OR
+* Select Auto (for ChromeOS, Linux and Mac only), and optionally enter a vendor ID filter. Auto mode will attempt to auto-enumerate the descriptor.
+* Click connect
 * In the device chooser dialog, select the headset
 * Check that a "Connected to device" message is displayed.
 
 After connecting to the headset, try clicking the "Pick Up" button to send an output report. This will cause LEDs to light up on the headset and control unit. The headset should respond with HID input reports. You can also press buttons on the control unit/headset to cause the headset to send HID input reports.
+
+When using a preset definition, the set descriptor will be displayed. When using auto mode, the detected reports will be displayed.
