@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>WebHID Demo</title>
+</head>
+<body>
+<div id="vendorFilter">
+  Vendor Filter: <input type="text" id="vendor" placeholder="0x0123"/> (Optional)
+  <br/>
+</div>
+<button type="button" onclick="requestDevice()">Connect</button>
+<br/>
+
+<div id="mylog" style="display: inline-block">
+  <h3>Log</h3>
+</div>
+
+<script type="application/javascript" src="webhid-simple.js">
+</script>
+</body>
+</html>
